@@ -1,20 +1,25 @@
 [package]
 
-name = "cargo-emscripten"
+name = "cargo-build"
 version = "0.0.1"
-authors = ["Pierre Krieger <pierre.krieger1708@gmail.com>"]
+authors = [
+	"Pierre Krieger <pierre.krieger1708@gmail.com>",
+	"Aaron Lindsay"
+]
 build = "build/main.rs"
 
 [lib]
-name = "cargo_emscripten"
+name = "cargo_build"
 path = "src/lib.rs"
-
-[dependencies]
-regex = "*"
-regex_macros = "*"
 
 [build-dependencies]
 git2 = "*"
 
 [dependencies.cargo]
 git = "https://github.com/rust-lang/cargo"
+
+[dependencies.docopt]
+version = "*"
+
+[dependencies.rustc-serialize]
+version = "0.3"

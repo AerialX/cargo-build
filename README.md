@@ -1,23 +1,88 @@
-# cargo-emscripten
+# cargo-build
 
-Builds your Cargo projects for emscripten.
+Builds your Cargo projects for LLVM IR, alternate platforms, and Emscripten.
 
-**Warning: everything here is very experimental. There are tons of warnings when compiling, tons of things are that just wrong, and the code is very ugly.**
+## Running
 
-## Pre-Rust-1.0 warning
+`cargo-build` runs just like `cargo build`, but provides a few additional options:
 
-This project is in stand-by before Rust becomes a bit more stable.
+- `--sysroot SYSROOT` will pass the `--sysroot` flag on to `rustc`. See the
+  Alternate Platforms section below for how this can be helpful.
+- `--emit TYPE` allows you to specify the end format of the produced binary:
+  - `llvm-ir`, `llvm-bc` tell `rustc` to produce LLVM IR or bitcode files instead
+    of the usual linked binary. Enable LTO in your `Cargo.toml` in order to
+    create standalone linked bitcode files that include all dependencies.
+  - `llvm35-ir` is a special target that runs a hacky transform over the `llvm-ir`
+    output that is mostly compatible with LLVM 3.5. This will force release mode.
+  - `em-html`, `em-js` will produce Emscripten output. If you wish to have more
+    control over its build flags, use `llvm35-ir` instead and call `emcc` on the
+    output once the build is complete.
+- `--opt OPT` provide the path to the `opt` executable that will be used to
+  transform the IR. This should be LLVM 3.5.
+- `--emcc EMCC` provide a path to the `emcc` executable when building Emscripten
+  target formats.
 
-## Prerequisites
+**NOTE: Using `llvm35-ir` or any emit modes that depend on it (Emscripten) will
+require a run of LLVM `opt`. Make sure you've built with `LLVM_PATH` as
+described in the section below. The generated `Remove*.so` files must reside in
+the same directory as the `cargo-build` binary.**
 
-- You have to install [the `incoming` version of emscripten](http://kripken.github.io/emscripten-site/docs/tools_reference/emsdk.html#how-do-i-track-the-latest-emscripten-development-with-the-sdk).
-- You can't use the std for now or it won't compile (but you don't need to put `#![no_std]` in your code). [Here is an example of a code that works](https://gist.github.com/tomaka/24c058db5ae31dfafb3f) if you just want to try it.
-- In order to build `cargo-emscripten`, you need to use the same nightlies as Cargo. Run the `.travis.install.deps.sh` file from rust-lang/cargo.
+## Building
 
-## How to use it
+    cargo build
 
-Start by compiling `cargo-emscripten` (this project).
+In order to build `cargo-build`, you need to use the same nightlies as Cargo.
+Run the `.travis.install.deps.sh` file from rust-lang/cargo. Alternatively,
+fix your local Cargo for the latest rust (or find a relevant pull request) and
+override it with `.cargo/config`
 
-Running `cargo-emscripten` is the same as running `cargo build`, except that the project will be compiled for emscripten. For the moment only HTML output is supported.
+When building, provide a `LLVM_PATH` environment variable to the location of
+an LLVM 3.5 install prefix if you intent on building for targets like Emscripten.
 
-If you don't have `emcc` in your PATH, you can pass the `--emcc` command line option to `cargo-emscripten` in order to indicate its location.
+## Alternate Platforms
+
+The `--sysroot` flag documented above can be used to provide an alternate `std`
+and related crates to an application. This is useful for embedded targets and
+others that may not actually be an LLVM target supported by rust, or to allow
+for LLVM IR output that will be transformed later.
+
+A lightweight `std` is provided in [rust-rt-minimal](https://github.com/AerialX/rust-rt-minimal)
+for use in these situations. It includes a modified standard library with
+threads and unwinding disabled for platforms that don't need or support them.
+
+    git clone https://github.com/AerialX/rust-rt-minimal.git
+    cd rust-rt-minimal/
+	TRIPLE=arch-target-triple
+    cargo build --release --target $TRIPLE
+	mkdir -p sysroot/lib/rustlib/$TRIPLE/lib
+    cp target/$TRIPLE/release/deps/lib*.rlib sysroot/lib/rustlib/$TRIPLE/lib/
+
+## Emscripten
+
+Install the [`incoming` branch](http://kripken.github.io/emscripten-site/docs/tools_reference/emsdk.html#how-do-i-track-the-latest-emscripten-development-with-the-sdk)
+of Emscripten.
+
+To build a project for Emscripten, you must first compile `std` as described
+above. Use the `i386-unknown-emscripten` triple, which is provided as a
+flexible target JSON in the rust-rt-minimal repo. Release mode must be used
+due to metadata compatibility issues with LLVM 3.5
+
+Once that is set up, compiling an emscripten project is simply:
+
+    cargo-build --sysroot path/to/sysroot --target i386-unknown-emscripten --release
+
+See [here](https://github.com/AerialX/rust-emscripten-example) for a sample.
+
+**NOTE: cargo currently [doesn't support flexible target specifications properly](https://github.com/rust-lang/cargo/issues/1390)
+if the file does not reside in the current path cargo is being executed from.
+Refrain from using relative or absolute paths when specifying a `--target`
+flag; you will need to copy this file into your project's root directory.**
+
+## See Also
+
+[rust-emscripten-passes](https://github.com/epdtry/rust-emscripten-passes) are
+used to transform `rustc`'s LLVM IR to 3.5 compatibility. It's automatically
+pulled in by the build script when building `cargo-build`.
+
+[cargo-emscripten](https://github.com/tomaka/cargo-emscripten) an older approach
+that this program is loosely based off of.

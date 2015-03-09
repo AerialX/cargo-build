@@ -1,54 +1,49 @@
+#![feature(path)]
+
 extern crate git2;
 
-use std::io::fs::PathExtensions;
-use std::io::process;
+use std::process::Command;
+use std::fs::{ remove_dir_all, create_dir_all, metadata, rename };
+use std::path::PathBuf;
+use std::env;
 
+use git2::Repository;
+
+#[allow(deprecated)]
 fn main() {
-    let out_dir = Path::new(std::os::getenv("OUT_DIR").unwrap());
-    let rust_dir = out_dir.join("rust");
+    let passes_name = "rust-emscripten-passes";
+    let passes_url = "https://github.com/epdtry/rust-emscripten-passes.git";
+    let passes = &[
+        "RemoveOverflowChecks.so",
+        "RemoveAssume.so",
+    ];
 
-    println!("Cloning Rust");
-    clone_rust(&rust_dir);
+    let llvm_path = env::var("LLVM_PATH");
+    let out_dir = PathBuf::new(&env::var_os("OUT_DIR").unwrap());
+    let passes_dir = out_dir.join(passes_name);
 
-    println!("Compiling libcore");
-    if !out_dir.join("core.ll").exists() {
-        compile(&rust_dir.join("src").join("libcore").join("lib.rs"), &out_dir);
-    }
+    if let Ok(llvm_path) = llvm_path {
+        println!("Cloning {}", passes_name);
+        clone(passes_url, &passes_dir);
 
-    println!("Compiling liblibc");
-    if !out_dir.join("libc.ll").exists() {
-        compile(&rust_dir.join("src").join("liblibc").join("lib.rs"), &out_dir);
-    }
+        println!("Compiling...");
+        run(Command::new("make")
+            .current_dir(&passes_dir)
+            .arg(passes[0])
+            .arg(passes[1])
+            .arg(&format!("LLVM_PATH={}", llvm_path)));
 
-    println!("Compiling liballoc");
-    if !out_dir.join("alloc.ll").exists() {
-        compile(&rust_dir.join("src").join("liballoc").join("lib.rs"), &out_dir);
-    }
-
-    println!("Compiling libcollections");
-    if !out_dir.join("collections.ll").exists() {
-        compile(&rust_dir.join("src").join("libcollections").join("lib.rs"), &out_dir);
-    }
-
-    println!("Compiling libunicode");
-    if !out_dir.join("unicode.ll").exists() {
-        compile(&rust_dir.join("src").join("libunicode").join("lib.rs"), &out_dir);
-    }
-
-    println!("Compiling librand");
-    if !out_dir.join("rand.ll").exists() {
-        compile(&rust_dir.join("src").join("librand").join("lib.rs"), &out_dir);
-    }
-
-    println!("Compiling libstd");
-    if !out_dir.join("std.ll").exists() {
-        compile(&rust_dir.join("src").join("libstd").join("lib.rs"), &out_dir);
+        for pass in passes {
+            rename(&passes_dir.join(pass), &out_dir.join("../../..").join(pass)).unwrap();
+        }
+    } else {
+        println!("No LLVM_PATH specified, Emscripten and LLVM 3.5 output will fail");
     }
 }
 
-fn clone_rust(path: &Path) -> git2::Repository {
-    if path.exists() {
-        match git2::Repository::open(path) {
+fn clone(url: &str, path: &PathBuf) -> Repository {
+    if metadata(path).is_ok() {
+        match Repository::open(path) {
             Ok(r) => {
                 if !r.is_empty().unwrap() {
                     return r;
@@ -57,29 +52,14 @@ fn clone_rust(path: &Path) -> git2::Repository {
             _ => ()
         };
 
-        std::io::fs::rmdir_recursive(path).unwrap();
+        remove_dir_all(path).unwrap();
     }
 
-    std::io::fs::mkdir(path, std::io::USER_RWX).unwrap();
-    git2::Repository::clone("https://github.com/rust-lang/rust#ad9e75938", path).unwrap()
+    create_dir_all(path).unwrap();
+    Repository::clone(url, path).unwrap()
 }
 
-fn compile(krate: &Path, out_dir: &Path) {
-    let mut command = process::Command::new("rustc");
-    command.arg(krate);
-    command.arg("--out-dir").arg(out_dir);
-    command.arg("--emit=llvm-ir");
-    
-    exec(command);
-}
-
-fn exec(mut cmd: process::Command) {
-    cmd.stdout(process::StdioContainer::InheritFd(1));
-    cmd.stderr(process::StdioContainer::InheritFd(2));
-
-    let cmd_str = cmd.to_string();
-
-    if !cmd.status().unwrap().success() {
-        panic!("Error while executing `{}`", cmd_str);
-    }
+fn run(cmd: &mut Command) {
+    println!("running: {:?}", cmd);
+    assert!(cmd.status().unwrap().success());
 }
