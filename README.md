@@ -32,10 +32,11 @@ the same directory as the `cargo-build` binary.**
 
     cargo build
 
-In order to build `cargo-build`, you need to use the same nightlies as Cargo.
-Run the `.travis.install.deps.sh` file from rust-lang/cargo. Alternatively,
-fix your local Cargo for the latest rust (or find a relevant pull request) and
-override it with `.cargo/config`
+In order to build `cargo-build`, you need to use the same rust version as Cargo.
+[multirust](https://github.com/brson/multirust) makes this easy, the version
+to install is referenced in `src/rustversion.txt`. Alternatively, fix your
+local Cargo for the latest rust (or find a relevant pull request) and override
+it with `.cargo/config`
 
 When building, provide a `LLVM_PREFIX` environment variable to the location of
 an LLVM 3.5 install prefix if you intent on building for targets like Emscripten.
