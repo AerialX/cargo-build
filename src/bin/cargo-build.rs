@@ -82,6 +82,7 @@ fn main() {
         emcc: options.flag_emcc.map(|s| PathBuf::new(&s)),
         opt: options.flag_opt.map(|s| PathBuf::new(&s)),
         emit: options.flag_emit,
+        target: options.flag_target.clone(),
     };
 
     let result = {

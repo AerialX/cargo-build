@@ -8,10 +8,11 @@ use std::fs::{File, read_link};
 use std::io::{self, BufReader, BufReadExt, Cursor, Write};
 use std::mem::swap;
 
-use cargo::ops::{ExecEngine, CommandPrototype};
+use cargo::ops::{ExecEngine, CommandPrototype, CommandType};
 use cargo::util::{self, ProcessError, ProcessBuilder};
 
 pub struct BuildEngine {
+    pub target: Option<String>,
     pub sysroot: Option<PathBuf>,
     pub emcc: Option<PathBuf>,
     pub opt: Option<PathBuf>,
@@ -38,6 +39,11 @@ impl BuildEngine {
 }
 
 fn exec(mut command: CommandPrototype, with_output: bool, engine: &BuildEngine) -> Result<Option<Output>, ProcessError> {
+    match command.get_type() {
+        &CommandType::Rustc => (),
+        _ => return do_exec(command.into_process_builder(), with_output),
+    }
+
     // if we don't find `--crate-type bin`, returning immediatly
     let is_binary = command.get_args().windows(2)
         .find(|&args| {
@@ -65,8 +71,17 @@ fn exec(mut command: CommandPrototype, with_output: bool, engine: &BuildEngine) 
             }
         }).next().unwrap();
 
+    let has_target = command.get_args()
+        .iter().find(|&arg| {
+            arg.to_str() == Some("--target")
+        }).is_some();
+
+    // NOTE: this is a hack, I'm not sure if there's a better way to detect this...
+    // We don't want to inject --sysroot into build dependencies meant to run on the target machine
+    let is_build = crate_name == "build-script-build" || (!has_target && engine.target.is_some());
+
     let (emit, rustc_emit, transform) = {
-        if is_binary {
+        if is_binary && !is_build {
             if BuildEngine::emit_needs_35(&engine.emit) {
                 (engine.emit.as_ref(), Some("llvm-ir"), true)
             } else {
@@ -92,7 +107,7 @@ fn exec(mut command: CommandPrototype, with_output: bool, engine: &BuildEngine) 
 
         new_command.arg("--emit").arg(&format!("dep-info,{}", rustc_emit));
 
-        if transform {
+        if transform && is_binary && !is_build {
             new_command.arg("-C").arg("lto");
         }
 
@@ -100,7 +115,9 @@ fn exec(mut command: CommandPrototype, with_output: bool, engine: &BuildEngine) 
     }
 
     if let Some(ref sysroot) = engine.sysroot {
-        command.arg("--sysroot").arg(&sysroot);
+        if !is_build {
+            command.arg("--sysroot").arg(&sysroot);
+        }
     }
 
     let output = try!(do_exec(command.into_process_builder(), with_output));
