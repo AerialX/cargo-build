@@ -1,4 +1,4 @@
-#![feature(path, io, os)]
+#![feature(path, io, os, process_capture)]
 
 extern crate cargo;
 
@@ -153,6 +153,7 @@ fn do_exec(process: ProcessBuilder, with_output: bool) -> Result<Option<Output>,
     }
 }
 
+#[allow(deprecated)]
 fn llvm35_transform(opt: &Path, path: &Path) -> io::Result<()> {
     // Step 1: Rewrite metadata syntax
     let input = try!(File::open(path));
@@ -184,8 +185,8 @@ fn llvm35_transform(opt: &Path, path: &Path) -> io::Result<()> {
         .arg("-remove-assume")
         .arg("-globaldce")
         .arg("-S")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
+        .stdin(Stdio::capture())
+        .stdout(Stdio::capture())
         .stderr(Stdio::inherit());
 
     let mut opt = opt.spawn().unwrap();
