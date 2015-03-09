@@ -13,7 +13,8 @@ Builds your Cargo projects for LLVM IR, alternate platforms, and Emscripten.
     of the usual linked binary. Enable LTO in your `Cargo.toml` in order to
     create standalone linked bitcode files that include all dependencies.
   - `llvm35-ir` is a special target that runs a hacky transform over the `llvm-ir`
-    output that is mostly compatible with LLVM 3.5. This will force release mode.
+    output that is mostly compatible with LLVM 3.5. This will force release mode
+    and enable LTO.
   - `em-html`, `em-js` will produce Emscripten output. If you wish to have more
     control over its build flags, use `llvm35-ir` instead and call `emcc` on the
     output once the build is complete.
@@ -52,9 +53,9 @@ threads and unwinding disabled for platforms that don't need or support them.
 
     git clone https://github.com/AerialX/rust-rt-minimal.git
     cd rust-rt-minimal/
-	TRIPLE=arch-target-triple
+    TRIPLE=arch-target-triple
     cargo build --release --target $TRIPLE
-	mkdir -p sysroot/lib/rustlib/$TRIPLE/lib
+    mkdir -p sysroot/lib/rustlib/$TRIPLE/lib
     cp target/$TRIPLE/release/deps/lib*.rlib sysroot/lib/rustlib/$TRIPLE/lib/
 
 ## Emscripten
@@ -65,11 +66,14 @@ of Emscripten.
 To build a project for Emscripten, you must first compile `std` as described
 above. Use the `i386-unknown-emscripten` triple, which is provided as a
 flexible target JSON in the rust-rt-minimal repo. Release mode must be used
-due to metadata compatibility issues with LLVM 3.5
+due to metadata compatibility issues with LLVM 3.5.
+
+Then build `cargo-build` as described above, making sure that you use the
+`LLVM_PATH` environment variable to include the optimization passes.
 
 Once that is set up, compiling an emscripten project is simply:
 
-    cargo-build --sysroot path/to/sysroot --target i386-unknown-emscripten --release
+    cargo-build --sysroot path/to/sysroot --target i386-unknown-emscripten
 
 See [here](https://github.com/AerialX/rust-emscripten-example) for a sample.
 
