@@ -1,11 +1,12 @@
-#![feature(path, io)]
+#![feature(path, io, os)]
 
 extern crate cargo;
 
 use std::process::{Output, Command, Stdio};
 use std::path::{Path, PathBuf};
-use std::fs::{File, read_link};
+use std::fs::File;
 use std::io::{self, BufReader, BufReadExt, Cursor, Write};
+use std::os::self_exe_path;
 use std::mem::swap;
 
 use cargo::ops::{ExecEngine, CommandPrototype, CommandType};
@@ -174,8 +175,8 @@ fn llvm35_transform(opt: &Path, path: &Path) -> io::Result<()> {
     let source = output.into_inner();
 
     // Step 2: Run LLVM optimization passes to remove llvm.assume and integer overflow checks
-    let opt_path = try!(read_link("/proc/self/exe"));
-    let opt_path = opt_path.parent().unwrap();
+    let opt_path = self_exe_path().unwrap();
+    let opt_path = Path::new(&opt_path);
     let mut opt = Command::new(opt);
     opt.arg(&format!("-load={}", opt_path.join("RemoveOverflowChecks.so").display()))
         .arg(&format!("-load={}", opt_path.join("RemoveAssume.so").display()))
