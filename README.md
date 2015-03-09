@@ -24,7 +24,7 @@ Builds your Cargo projects for LLVM IR, alternate platforms, and Emscripten.
   target formats.
 
 **NOTE: Using `llvm35-ir` or any emit modes that depend on it (Emscripten) will
-require a run of LLVM `opt`. Make sure you've built with `LLVM_PATH` as
+require a run of LLVM `opt`. Make sure you've built with `LLVM_PREFIX` as
 described in the section below. The generated `Remove*.so` files must reside in
 the same directory as the `cargo-build` binary.**
 
@@ -37,7 +37,7 @@ Run the `.travis.install.deps.sh` file from rust-lang/cargo. Alternatively,
 fix your local Cargo for the latest rust (or find a relevant pull request) and
 override it with `.cargo/config`
 
-When building, provide a `LLVM_PATH` environment variable to the location of
+When building, provide a `LLVM_PREFIX` environment variable to the location of
 an LLVM 3.5 install prefix if you intent on building for targets like Emscripten.
 
 ## Alternate Platforms
@@ -69,7 +69,7 @@ flexible target JSON in the rust-rt-minimal repo. Release mode must be used
 due to metadata compatibility issues with LLVM 3.5.
 
 Then build `cargo-build` as described above, making sure that you use the
-`LLVM_PATH` environment variable to include the optimization passes.
+`LLVM_PREFIX` environment variable to include the optimization passes.
 
 Once that is set up, compiling an emscripten project is simply:
 

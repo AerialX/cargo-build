@@ -18,7 +18,7 @@ fn main() {
         "RemoveAssume.so",
     ];
 
-    let llvm_path = env::var("LLVM_PATH");
+    let llvm_path = env::var("LLVM_PREFIX");
     let out_dir = PathBuf::new(&env::var_os("OUT_DIR").unwrap());
     let passes_dir = out_dir.join(passes_name);
 
@@ -31,13 +31,13 @@ fn main() {
             .current_dir(&passes_dir)
             .arg(passes[0])
             .arg(passes[1])
-            .arg(&format!("LLVM_PATH={}", llvm_path)));
+            .arg(&format!("LLVM_PREFIX={}", llvm_path)));
 
         for pass in passes {
             rename(&passes_dir.join(pass), &out_dir.join("../../..").join(pass)).unwrap();
         }
     } else {
-        println!("No LLVM_PATH specified, Emscripten and LLVM 3.5 output will fail");
+        println!("No LLVM_PREFIX specified, Emscripten and LLVM 3.5 output will fail");
     }
 }
 
