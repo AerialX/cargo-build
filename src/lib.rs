@@ -5,7 +5,7 @@ extern crate cargo;
 use std::process::{Output, Command, Stdio};
 use std::path::{Path, PathBuf};
 use std::fs::File;
-use std::io::{self, BufReader, BufReadExt, Cursor, Write};
+use std::io::{self, BufReader, BufReadExt, BufWriter, Write, copy};
 use std::os::self_exe_path;
 use std::mem::swap;
 
@@ -155,27 +155,10 @@ fn do_exec(process: ProcessBuilder, with_output: bool) -> Result<Option<Output>,
 
 #[allow(deprecated)]
 fn llvm35_transform(opt: &Path, path: &Path) -> io::Result<()> {
-    // Step 1: Rewrite metadata syntax
     let input = try!(File::open(path));
     let input = BufReader::new(input);
 
-    let mut output = Cursor::new(Vec::new());
-
-    for line in input.lines() {
-        let mut line = try!(line);
-        if line.starts_with("!") {
-            line = line.replace("!", "metadata !");
-            line = line.replace("distinct metadata", "metadata");
-            line = line["metadata ".len()..].to_string();
-        }
-
-        try!(output.write_all(line.as_bytes()));
-        try!(output.write_all(&['\n' as u8]));
-    }
-
-    let source = output.into_inner();
-
-    // Step 2: Run LLVM optimization passes to remove llvm.assume and integer overflow checks
+    // Prepare LLVM optimization passes to remove llvm.assume and integer overflow checks
     let opt_path = self_exe_path().unwrap();
     let opt_path = Path::new(&opt_path);
     let mut opt = Command::new(opt);
@@ -190,13 +173,32 @@ fn llvm35_transform(opt: &Path, path: &Path) -> io::Result<()> {
         .stderr(Stdio::inherit());
 
     let mut opt = opt.spawn().unwrap();
-    try!(opt.stdin.as_mut().unwrap().write_all(&source[..]));
-    let output = opt.wait_with_output().unwrap();
-    assert!(output.status.success());
-    let source = output.stdout;
+    {
+        let mut output = BufWriter::new(opt.stdin.as_mut().unwrap());
 
-    let mut output = try!(File::create(path));
-    try!(output.write_all(&source[..]));
+        // Run a string transform over the IR to fix metadata syntax for LLVM 3.5
+        for line in input.lines() {
+            let mut line = try!(line);
+            let line = if line.starts_with("!") {
+                line = line.replace("!", "metadata !");
+                line = line.replace("distinct metadata", "metadata");
+                &line[9..]
+            } else {
+                &line[..]
+            };
+
+            try!(output.write_all(line.as_bytes()));
+            try!(output.write_all(&['\n' as u8]));
+        }
+    }
+
+    drop(opt.stdin.take());
+
+    {
+        let mut output = try!(File::create(path));
+        try!(copy(opt.stdout.as_mut().unwrap(), &mut output));
+    }
+    assert!(opt.wait().unwrap().success());
 
     Ok(())
 }
