@@ -74,7 +74,7 @@ Then build `cargo-build` as described above, making sure that you use the
 
 Once that is set up, compiling an emscripten project is simply:
 
-    cargo-build --sysroot path/to/sysroot --target i386-unknown-emscripten
+    cargo-build --sysroot path/to/sysroot --target i386-unknown-emscripten --emit em-html
 
 See [here](https://github.com/AerialX/rust-emscripten-example) for a sample.
 
