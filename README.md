@@ -78,10 +78,8 @@ Once that is set up, compiling an emscripten project is simply:
 
 See [here](https://github.com/AerialX/rust-emscripten-example) for a sample.
 
-**NOTE: cargo currently [doesn't support flexible target specifications properly](https://github.com/rust-lang/cargo/issues/1390)
-if the file does not reside in the current path cargo is being executed from.
-Refrain from using relative or absolute paths when specifying a `--target`
-flag; you will need to copy this file into your project's root directory.**
+**NOTE: rustc currently [miscompiles some struct field accesses](https://github.com/rust-lang/rust/issues/23431)
+in a way that may result in incorrect code execution with Emscripten.**
 
 ## See Also
 
