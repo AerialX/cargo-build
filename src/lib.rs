@@ -1,11 +1,11 @@
-#![feature(path, io, os, process_capture)]
+#![feature(os)]
 
 extern crate cargo;
 
 use std::process::{Output, Command, Stdio};
 use std::path::{Path, PathBuf};
 use std::fs::File;
-use std::io::{self, BufReader, BufReadExt, BufWriter, Write, copy};
+use std::io::{self, BufReader, BufRead, BufWriter, Write, copy};
 use std::os::self_exe_path;
 use std::mem::swap;
 
@@ -45,7 +45,6 @@ fn exec(mut command: CommandPrototype, with_output: bool, engine: &BuildEngine) 
         _ => return do_exec(command.into_process_builder(), with_output),
     }
 
-    // if we don't find `--crate-type bin`, returning immediatly
     let is_binary = command.get_args().windows(2)
         .find(|&args| {
             args[0].to_str() == Some("--crate-type") &&
@@ -153,7 +152,6 @@ fn do_exec(process: ProcessBuilder, with_output: bool) -> Result<Option<Output>,
     }
 }
 
-#[allow(deprecated)]
 fn llvm35_transform(opt: &Path, path: &Path) -> io::Result<()> {
     let input = try!(File::open(path));
     let input = BufReader::new(input);
@@ -162,14 +160,12 @@ fn llvm35_transform(opt: &Path, path: &Path) -> io::Result<()> {
     let opt_path = self_exe_path().unwrap();
     let opt_path = Path::new(&opt_path);
     let mut opt = Command::new(opt);
-    opt.arg(&format!("-load={}", opt_path.join("RemoveOverflowChecks.so").display()))
-        .arg(&format!("-load={}", opt_path.join("RemoveAssume.so").display()))
-        .arg("-remove-overflow-checks")
+    opt.arg(&format!("-load={}", opt_path.join("RemoveAssume.so").display()))
         .arg("-remove-assume")
         .arg("-globaldce")
         .arg("-S")
-        .stdin(Stdio::capture())
-        .stdout(Stdio::capture())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
         .stderr(Stdio::inherit());
 
     let mut opt = opt.spawn().unwrap();

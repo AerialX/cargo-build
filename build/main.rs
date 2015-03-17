@@ -14,7 +14,6 @@ fn main() {
     let passes_name = "rust-emscripten-passes";
     let passes_url = "https://github.com/epdtry/rust-emscripten-passes.git";
     let passes = &[
-        "RemoveOverflowChecks.so",
         "RemoveAssume.so",
     ];
 
