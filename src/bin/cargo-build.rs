@@ -1,4 +1,4 @@
-extern crate "rustc-serialize" as rustc_serialize;
+extern crate rustc_serialize;
 
 extern crate cargo;
 extern crate cargo_build;
@@ -7,9 +7,10 @@ extern crate docopt;
 use std::sync::Arc;
 use std::path::PathBuf;
 
-use cargo::ops::{self, CompileOptions, ExecEngine};
+use cargo::ops::{self, CompileOptions, ExecEngine, CompileFilter, CompileMode};
 use cargo::util::important_paths::{find_root_manifest_for_cwd};
 use cargo::util::Config;
+use cargo::core::shell::Verbosity;
 
 use docopt::Docopt;
 
@@ -25,7 +26,6 @@ struct Options {
     flag_manifest_path: Option<String>,
     flag_verbose: bool,
     flag_release: bool,
-    flag_lib: bool,
     flag_emcc: Option<String>,
     flag_sysroot: Option<String>,
     flag_emit: Option<String>,
@@ -65,36 +65,39 @@ fn main() {
                                    .and_then(|d| d.decode())
                                    .unwrap_or_else(|e| e.exit());
 
-    let mut shell = cargo::shell(options.flag_verbose);
+    let verbosity = if options.flag_verbose { Verbosity::Verbose } else { Verbosity::Normal };
+    let shell = cargo::shell(verbosity);
 
     let root = find_root_manifest_for_cwd(options.flag_manifest_path).unwrap();
 
-    let env = if options.flag_release || BuildEngine::emit_needs_35(&options.flag_emit) {
-        "release"
+    let release = if options.flag_release || BuildEngine::emit_needs_35(&options.flag_emit) {
+        true
     } else {
-        "compile"
+        false
     };
 
     let engine = BuildEngine {
-        sysroot: options.flag_sysroot.map(|s| PathBuf::new(&s)),
-        emcc: options.flag_emcc.map(|s| PathBuf::new(&s)),
-        opt: options.flag_opt.map(|s| PathBuf::new(&s)),
+        sysroot: options.flag_sysroot.map(|s| PathBuf::from(&s)),
+        emcc: options.flag_emcc.map(|s| PathBuf::from(&s)),
+        opt: options.flag_opt.map(|s| PathBuf::from(&s)),
         emit: options.flag_emit,
         target: options.flag_target.clone(),
     };
 
+    let config = Config::new(shell).unwrap();
     let result = {
         let mut opts = CompileOptions {
-            env: env,
-            config: &Config::new(&mut shell).unwrap(),
+            config: &config,
             jobs: options.flag_jobs,
             target: options.flag_target.as_ref().map(|t| &t[..]),
-            dev_deps: false,
             features: &options.flag_features[..],
             no_default_features: options.flag_no_default_features,
             spec: options.flag_package.as_ref().map(|s| &s[..]),
-            lib_only: options.flag_lib,
+            filter: CompileFilter::Everything,
             exec_engine: Some(Arc::new(Box::new(engine) as Box<ExecEngine>)),
+            release: release,
+            mode: CompileMode::Build,
+            target_rustc_args: None
         };
 
         ops::compile(&root, &mut opts)
@@ -102,5 +105,5 @@ fn main() {
     
     cargo::process_executed(result.map(|_| None::<()>).map_err(|err| {
         cargo::util::CliError::from_boxed(err, 101)
-    }), &mut shell);
+    }), &mut config.shell());
 }

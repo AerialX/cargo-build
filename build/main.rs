@@ -1,4 +1,3 @@
-#![feature(path)]
 
 extern crate git2;
 
@@ -18,7 +17,7 @@ fn main() {
     ];
 
     let llvm_path = env::var("LLVM_PREFIX");
-    let out_dir = PathBuf::new(&env::var_os("OUT_DIR").unwrap());
+    let out_dir = PathBuf::from(&env::var_os("OUT_DIR").unwrap());
     let passes_dir = out_dir.join(passes_name);
 
     if let Ok(llvm_path) = llvm_path {

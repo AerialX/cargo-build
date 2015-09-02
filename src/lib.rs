@@ -1,16 +1,16 @@
-#![feature(os)]
-
 extern crate cargo;
 
 use std::process::{Output, Command, Stdio};
 use std::path::{Path, PathBuf};
 use std::fs::File;
 use std::io::{self, BufReader, BufRead, BufWriter, Write, copy};
-use std::os::self_exe_path;
+use std::env::current_exe;
 use std::mem::swap;
 
 use cargo::ops::{ExecEngine, CommandPrototype, CommandType};
-use cargo::util::{self, ProcessError, ProcessBuilder};
+use cargo::util::{self, ProcessError, ProcessBuilder, Config};
+use cargo::core::shell::Verbosity;
+use cargo::shell;
 
 pub struct BuildEngine {
     pub target: Option<String>,
@@ -93,7 +93,11 @@ fn exec(mut command: CommandPrototype, with_output: bool, engine: &BuildEngine) 
     };
 
     if let Some(rustc_emit) = rustc_emit {
-        let mut new_command = CommandPrototype::new(command.get_type().clone()).unwrap();
+        let verb = Verbosity::Normal;
+        let shell = shell(verb);
+        let config = Config::new(shell).unwrap();
+
+        let mut new_command = CommandPrototype::new(command.get_type().clone(), &config).unwrap();
 
         for arg in command.get_args().iter().filter(|a| !a.to_str().unwrap().starts_with("--emit")) {
             new_command.arg(arg);
@@ -121,7 +125,7 @@ fn exec(mut command: CommandPrototype, with_output: bool, engine: &BuildEngine) 
     }
 
     let output = try!(do_exec(command.into_process_builder(), with_output));
-    let ll_output_file = PathBuf::new(&format!("{}/{}.ll", out_dir, crate_name));
+    let ll_output_file = PathBuf::from(&format!("{}/{}.ll", out_dir, crate_name));
 
     if transform {
         llvm35_transform(engine.opt.as_ref().map(|v| &**v).unwrap_or(&Path::new("opt")), &*ll_output_file).unwrap();
@@ -134,7 +138,7 @@ fn exec(mut command: CommandPrototype, with_output: bool, engine: &BuildEngine) 
                 "em-js" => "js",
                 _ => panic!("unsupported emscripten emit type"),
             };
-            let mut process = util::process(engine.emcc.as_ref().unwrap_or(&PathBuf::new("emcc"))).unwrap();
+            let mut process = util::process(engine.emcc.as_ref().unwrap_or(&PathBuf::from("emcc"))).unwrap();
             process.arg(&ll_output_file)
                 .arg("-lGL").arg("-lSDL").arg("-s").arg("USE_SDL=2")
                 .arg("-o").arg(&format!("{}/{}.{}", out_dir, crate_name, extension));
@@ -157,7 +161,7 @@ fn llvm35_transform(opt: &Path, path: &Path) -> io::Result<()> {
     let input = BufReader::new(input);
 
     // Prepare LLVM optimization passes to remove llvm.assume and integer overflow checks
-    let opt_path = self_exe_path().unwrap();
+    let opt_path = current_exe().unwrap();
     let opt_path = Path::new(&opt_path);
     let mut opt = Command::new(opt);
     opt.arg(&format!("-load={}", opt_path.join("RemoveAssume.so").display()))
