@@ -164,7 +164,7 @@ fn llvm35_transform(opt: &Path, path: &Path) -> io::Result<()> {
     let opt_path = current_exe().unwrap();
     let opt_path = Path::new(&opt_path);
     let mut opt = Command::new(opt);
-    opt.arg(&format!("-load={}", opt_path.join("RemoveAssume.so").display()))
+    opt.arg(&format!("-load={}", opt_path.parent().unwrap().join("RemoveAssume.so").display()))
         .arg("-remove-assume")
         .arg("-globaldce")
         .arg("-S")

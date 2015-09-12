@@ -28,7 +28,6 @@ fn main() {
         run(Command::new("make")
             .current_dir(&passes_dir)
             .arg(passes[0])
-            .arg(passes[1])
             .arg(&format!("LLVM_PREFIX={}", llvm_path)));
 
         for pass in passes {
