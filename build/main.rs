@@ -11,7 +11,7 @@ use git2::Repository;
 #[allow(deprecated)]
 fn main() {
     let passes_name = "rust-emscripten-passes";
-    let passes_url = "https://github.com/epdtry/rust-emscripten-passes.git";
+    let passes_url = "https://github.com/tcr/rust-emscripten-passes.git";
     let passes = &[
         "RemoveAssume.so",
     ];
