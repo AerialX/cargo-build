@@ -1,4 +1,3 @@
-#![feature(path)]
 
 extern crate git2;
 
@@ -12,13 +11,13 @@ use git2::Repository;
 #[allow(deprecated)]
 fn main() {
     let passes_name = "rust-emscripten-passes";
-    let passes_url = "https://github.com/epdtry/rust-emscripten-passes.git";
+    let passes_url = "https://github.com/tcr/rust-emscripten-passes.git";
     let passes = &[
         "RemoveAssume.so",
     ];
 
     let llvm_path = env::var("LLVM_PREFIX");
-    let out_dir = PathBuf::new(&env::var_os("OUT_DIR").unwrap());
+    let out_dir = PathBuf::from(&env::var_os("OUT_DIR").unwrap());
     let passes_dir = out_dir.join(passes_name);
 
     if let Ok(llvm_path) = llvm_path {
@@ -29,7 +28,6 @@ fn main() {
         run(Command::new("make")
             .current_dir(&passes_dir)
             .arg(passes[0])
-            .arg(passes[1])
             .arg(&format!("LLVM_PREFIX={}", llvm_path)));
 
         for pass in passes {
